@@ -6,7 +6,7 @@ import time
 
 FLAGS = tf.app.flags.FLAGS
 
-def _summarize_progress(train_data, feature, label, gene_output, batch, suffix, max_samples=8):
+def _summarize_progress(train_data, feature, label, gene_output, batch, suffix, max_samples=4):
     td = train_data
 
     size = [label.shape[1], label.shape[2]]
@@ -23,10 +23,15 @@ def _summarize_progress(train_data, feature, label, gene_output, batch, suffix, 
 
     image = image[0:max_samples,:,:,:]
     image = tf.concat(0, [image[i,:,:,:] for i in range(max_samples)])
+    clipped = tf.concat(0,[clipped[0,:,:,:]])
     image = td.sess.run(image)
+    clipped = td.sess.run(clipped)
 
     filename = 'batch%06d_%s.png' % (batch, suffix)
     filename = os.path.join(FLAGS.train_dir, filename)
+    gansname = 'batch%06d.png' % (batch)
+    gansname = os.path.join(FLAGS.train_dir, gansname)
+    scipy.misc.toimage(clipped, cmin=0., cmax=1.).save(gansname)
     scipy.misc.toimage(image, cmin=0., cmax=1.).save(filename)
     print("    Saved %s" % (filename,))
 
@@ -93,7 +98,7 @@ def train_model(train_data):
 
             # Finished?            
             current_progress = elapsed / FLAGS.train_time
-            if current_progress >= 1.0:
+            if current_progress >= 10.0:
                 done = True
             
             # Update learning rate
@@ -102,9 +107,11 @@ def train_model(train_data):
 
         if batch % FLAGS.summary_period == 0:
             # Show progress with test features
+            current_time = time.time()
             feed_dict = {td.gene_minput: test_feature}
             gene_output = td.sess.run(td.gene_moutput, feed_dict=feed_dict)
             _summarize_progress(td, test_feature, test_label, gene_output, batch, 'out')
+            print time.time() - current_time
             
         if batch % FLAGS.checkpoint_period == 0:
             # Save checkpoint

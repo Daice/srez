@@ -2,6 +2,39 @@ import tensorflow as tf
 
 FLAGS = tf.app.flags.FLAGS
 
+def setup_input(sess,filenames,labelnames,image_size=64, capacity_factor=3):
+    # Read each jpg file
+    reader = tf.WholeFileReader()
+    filename_queue = tf.train.string_input_producer(filenames)
+    labelname_queue = tf.train.string_input_producer(labelnames)
+    key1, value1 = reader.read(filename_queue)
+    key2, value2 = reader.read(labelname_queue)
+    channels = 3
+    image = tf.image.decode_jpeg(value1, channels=channels, name="aiport_original_image")
+    label = tf.image.decode_jpeg(value2, channels=channels, name="airport_image")
+    image.set_shape([None, None, channels])
+    label.set_shape([None, None, channels])
+
+    image = tf.reshape(image, [1, 260,260, 3])
+    image = tf.cast(image, tf.float32)/255.0
+
+    image = tf.image.resize_area(image, [64, 64])
+    feature = tf.reshape(image, [64, 64, 3])
+    label = tf.reshape(label, [256, 256, 3])
+    label = tf.cast(label, tf.float32)/255.0
+    # Using asynchronous queues
+    features, labels = tf.train.batch([feature, label],
+                                      batch_size=4,
+                                      num_threads=2,
+                                      capacity = capacity_factor*4,
+                                      name='labels_and_features')
+
+    tf.train.start_queue_runners(sess=sess)
+      
+    return features, labels
+
+ 
+
 def setup_inputs(sess, filenames, image_size=None, capacity_factor=3):
 
     if image_size is None:

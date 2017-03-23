@@ -13,7 +13,7 @@ import tensorflow as tf
 FLAGS = tf.app.flags.FLAGS
 
 # Configuration (alphabetically)
-tf.app.flags.DEFINE_integer('batch_size', 16,
+tf.app.flags.DEFINE_integer('batch_size', 4,
                             "Number of samples per batch.")
 
 tf.app.flags.DEFINE_string('checkpoint_dir', 'checkpoint',
@@ -24,6 +24,12 @@ tf.app.flags.DEFINE_integer('checkpoint_period', 10000,
 
 tf.app.flags.DEFINE_string('dataset', 'dataset',
                            "Path to the dataset directory.")
+
+tf.app.flags.DEFINE_string('airport_original', 'airport_original',
+                            "Path to the train directory")
+
+tf.app.flags.DEFINE_string('airport', 'airport',
+                            "Path to the label directry")
 
 tf.app.flags.DEFINE_float('epsilon', 1e-8,
                           "Fuzz term to avoid numerical instability")
@@ -49,19 +55,19 @@ tf.app.flags.DEFINE_bool('log_device_placement', False,
 tf.app.flags.DEFINE_integer('sample_size', 64,
                             "Image sample size in pixels. Range [64,128]")
 
-tf.app.flags.DEFINE_integer('summary_period', 200,
+tf.app.flags.DEFINE_integer('summary_period', 100,
                             "Number of batches between summary data dumps")
 
 tf.app.flags.DEFINE_integer('random_seed', 0,
                             "Seed used to initialize rng.")
 
-tf.app.flags.DEFINE_integer('test_vectors', 16,
+tf.app.flags.DEFINE_integer('test_vectors', 8,
                             """Number of features to use for testing""")
                             
 tf.app.flags.DEFINE_string('train_dir', 'train',
                            "Output folder where training logs are dumped.")
 
-tf.app.flags.DEFINE_integer('train_time', 20,
+tf.app.flags.DEFINE_integer('train_time', 60,
                             "Time in minutes to train the model")
 
 def prepare_dirs(delete_train_dir=False):
@@ -76,14 +82,14 @@ def prepare_dirs(delete_train_dir=False):
         tf.gfile.MakeDirs(FLAGS.train_dir)
 
     # Return names of training files
-    if not tf.gfile.Exists(FLAGS.dataset) or \
-       not tf.gfile.IsDirectory(FLAGS.dataset):
-        raise FileNotFoundError("Could not find folder `%s'" % (FLAGS.dataset,))
+    if not tf.gfile.Exists(FLAGS.airport_original) or \
+       not tf.gfile.IsDirectory(FLAGS.airport_original):
+        raise FileNotFoundError("Could not find folder `%s'" % (FLAGS.airport_original,))
 
-    filenames = tf.gfile.ListDirectory(FLAGS.dataset)
+    filenames = tf.gfile.ListDirectory(FLAGS.airport_original)
     filenames = sorted(filenames)
-    random.shuffle(filenames)
-    filenames = [os.path.join(FLAGS.dataset, f) for f in filenames]
+#random.shuffle(filenames)
+    filenames = [os.path.join(FLAGS.airport_original, f) for f in filenames] #59
 
     return filenames
 
@@ -144,15 +150,23 @@ def _train():
     # Prepare directories
     all_filenames = prepare_dirs(delete_train_dir=True)
 
+    # Prepare label
+    filenames = tf.gfile.ListDirectory(FLAGS.airport)
+    filenames = sorted(filenames)
+    labelnames = [os.path.join(FLAGS.airport, f) for f in filenames] #1
+
+
     # Separate training and test sets
     train_filenames = all_filenames[:-FLAGS.test_vectors]
+    train_labelnames = labelnames[:-FLAGS.test_vectors] 
     test_filenames  = all_filenames[-FLAGS.test_vectors:]
+    test_labelnames = labelnames[-FLAGS.test_vectors:]
 
     # TBD: Maybe download dataset here
 
     # Setup async input queues
-    train_features, train_labels = srez_input.setup_inputs(sess, train_filenames)
-    test_features,  test_labels  = srez_input.setup_inputs(sess, test_filenames)
+    train_features, train_labels = srez_input.setup_input(sess, train_filenames, train_labelnames)
+    test_features,  test_labels  = srez_input.setup_input(sess, test_filenames, test_labelnames)
 
     # Add some noise during training (think denoising autoencoders)
     noise_level = .03
