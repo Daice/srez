@@ -55,7 +55,7 @@ tf.app.flags.DEFINE_bool('log_device_placement', False,
 tf.app.flags.DEFINE_integer('sample_size', 64,
                             "Image sample size in pixels. Range [64,128]")
 
-tf.app.flags.DEFINE_integer('summary_period', 100,
+tf.app.flags.DEFINE_integer('summary_period', 200,
                             "Number of batches between summary data dumps")
 
 tf.app.flags.DEFINE_integer('random_seed', 0,
@@ -67,7 +67,7 @@ tf.app.flags.DEFINE_integer('test_vectors', 8,
 tf.app.flags.DEFINE_string('train_dir', 'train',
                            "Output folder where training logs are dumped.")
 
-tf.app.flags.DEFINE_integer('train_time', 60,
+tf.app.flags.DEFINE_integer('train_time', 480,
                             "Time in minutes to train the model")
 
 def prepare_dirs(delete_train_dir=False):
