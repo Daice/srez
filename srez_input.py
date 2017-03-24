@@ -15,7 +15,13 @@ def setup_input(sess,filenames,labelnames,image_size=64, capacity_factor=3):
     image.set_shape([None, None, channels])
     label.set_shape([None, None, channels])
 
-    image = tf.reshape(image, [1, 260,260, 3])
+    # Crop and other random augmentations
+    image = tf.image.random_flip_left_right(image)
+    image = tf.image.random_saturation(image, .95, 1.05)
+    image = tf.image.random_brightness(image, .05)
+    image = tf.image.random_contrast(image, .95, 1.05)
+
+    image = tf.reshape(image, [1, 256,256, 3])
     image = tf.cast(image, tf.float32)/255.0
 
     image = tf.image.resize_area(image, [64, 64])

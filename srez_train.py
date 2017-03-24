@@ -98,7 +98,7 @@ def train_model(train_data):
 
             # Finished?            
             current_progress = elapsed / FLAGS.train_time
-            if current_progress >= 1.0:
+            if current_progress >= 2.0:
                 done = True
             
             # Update learning rate
