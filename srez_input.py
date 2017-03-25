@@ -16,7 +16,7 @@ def setup_input(sess,filenames,labelnames,image_size=64, capacity_factor=3):
     label.set_shape([None, None, channels])
 
     # Crop and other random augmentations
-    image = tf.image.random_flip_left_right(image)
+    #image = tf.image.random_flip_left_right(image)
     image = tf.image.random_saturation(image, .95, 1.05)
     image = tf.image.random_brightness(image, .05)
     image = tf.image.random_contrast(image, .95, 1.05)
@@ -30,7 +30,7 @@ def setup_input(sess,filenames,labelnames,image_size=64, capacity_factor=3):
     label = tf.cast(label, tf.float32)/255.0
     # Using asynchronous queues
     features, labels = tf.train.batch([feature, label],
-                                      batch_size=4,
+                                      batch_size=8,
                                       num_threads=2,
                                       capacity = capacity_factor*4,
                                       name='labels_and_features')

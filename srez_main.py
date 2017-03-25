@@ -13,7 +13,7 @@ import tensorflow as tf
 FLAGS = tf.app.flags.FLAGS
 
 # Configuration (alphabetically)
-tf.app.flags.DEFINE_integer('batch_size', 4,
+tf.app.flags.DEFINE_integer('batch_size', 8,
                             "Number of samples per batch.")
 
 tf.app.flags.DEFINE_string('checkpoint_dir', 'checkpoint',
@@ -22,13 +22,11 @@ tf.app.flags.DEFINE_string('checkpoint_dir', 'checkpoint',
 tf.app.flags.DEFINE_integer('checkpoint_period', 10000,
                             "Number of batches in between checkpoints")
 
-tf.app.flags.DEFINE_string('dataset', 'dataset',
-                           "Path to the dataset directory.")
 
-tf.app.flags.DEFINE_string('airport_original', 'airport_original',
+tf.app.flags.DEFINE_string('coco_fake', 'coco_fake',
                             "Path to the train directory")
 
-tf.app.flags.DEFINE_string('airport', 'airport',
+tf.app.flags.DEFINE_string('coco_real', 'coco_real',
                             "Path to the label directry")
 
 tf.app.flags.DEFINE_float('epsilon', 1e-8,
@@ -82,16 +80,21 @@ def prepare_dirs(delete_train_dir=False):
         tf.gfile.MakeDirs(FLAGS.train_dir)
 
     # Return names of training files
-    if not tf.gfile.Exists(FLAGS.airport_original) or \
-       not tf.gfile.IsDirectory(FLAGS.airport_original):
-        raise FileNotFoundError("Could not find folder `%s'" % (FLAGS.airport_original,))
+    if not tf.gfile.Exists(FLAGS.coco_fake) or \
+       not tf.gfile.IsDirectory(FLAGS.coco_real):
+        raise FileNotFoundError("Could not find folder `%s'" % (FLAGS.coco_fake))
 
-    filenames = tf.gfile.ListDirectory(FLAGS.airport_original)
+    filenames = tf.gfile.ListDirectory(FLAGS.coco_fake)
     filenames = sorted(filenames)
-#random.shuffle(filenames)
-    filenames = [os.path.join(FLAGS.airport_original, f) for f in filenames] #59
+    #random.shuffle(filenames)
+    filenames = [os.path.join(FLAGS.coco_fake, f) for f in filenames]
 
-    return filenames
+    labelnames = tf.gfile.ListDirectory(FLAGS.coco_real)
+    labelnames = sorted(labelnames)
+    #random.shuffle(filenames)
+    labelnames = [os.path.join(FLAGS.coco_real, f) for f in labelnames]
+
+    return filenames, labelnames
 
 
 def setup_tensorflow():
@@ -148,18 +151,12 @@ def _train():
     sess, summary_writer = setup_tensorflow()
 
     # Prepare directories
-    all_filenames = prepare_dirs(delete_train_dir=True)
-
-    # Prepare label
-    filenames = tf.gfile.ListDirectory(FLAGS.airport)
-    filenames = sorted(filenames)
-    labelnames = [os.path.join(FLAGS.airport, f) for f in filenames] #1
-
+    filenames, labelnames = prepare_dirs(delete_train_dir=True)
 
     # Separate training and test sets
-    train_filenames = all_filenames[:-FLAGS.test_vectors]
+    train_filenames = filenames[:-FLAGS.test_vectors]
     train_labelnames = labelnames[:-FLAGS.test_vectors] 
-    test_filenames  = all_filenames[-FLAGS.test_vectors:]
+    test_filenames  = filenames[-FLAGS.test_vectors:]
     test_labelnames = labelnames[-FLAGS.test_vectors:]
 
     # TBD: Maybe download dataset here
