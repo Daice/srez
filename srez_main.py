@@ -2,32 +2,34 @@ import srez_demo
 import srez_input
 import srez_model
 import srez_train
+import srez_infere
 
 import os.path
 import random
 import numpy as np
 import numpy.random
+import scipy.misc
 
 import tensorflow as tf
 
 FLAGS = tf.app.flags.FLAGS
 
+
 # Configuration (alphabetically)
-tf.app.flags.DEFINE_integer('batch_size', 8,
+tf.app.flags.DEFINE_integer('batch_size', 16,
                             "Number of samples per batch.")
 
 tf.app.flags.DEFINE_string('checkpoint_dir', 'checkpoint',
                            "Output folder where checkpoints are dumped.")
 
-tf.app.flags.DEFINE_integer('checkpoint_period', 10000,
+tf.app.flags.DEFINE_integer('checkpoint_period', 1000,
                             "Number of batches in between checkpoints")
 
+tf.app.flags.DEFINE_string('coco_real', 'coco_real',
+                           "Path to the label directory.")
 
 tf.app.flags.DEFINE_string('coco_fake', 'coco_fake',
-                            "Path to the train directory")
-
-tf.app.flags.DEFINE_string('coco_real', 'coco_real',
-                            "Path to the label directry")
+                           "Path to the feature directory.")
 
 tf.app.flags.DEFINE_float('epsilon', 1e-8,
                           "Fuzz term to avoid numerical instability")
@@ -53,26 +55,50 @@ tf.app.flags.DEFINE_bool('log_device_placement', False,
 tf.app.flags.DEFINE_integer('sample_size', 64,
                             "Image sample size in pixels. Range [64,128]")
 
-tf.app.flags.DEFINE_integer('summary_period', 200,
+tf.app.flags.DEFINE_integer('summary_period', 10,
                             "Number of batches between summary data dumps")
 
 tf.app.flags.DEFINE_integer('random_seed', 0,
                             "Seed used to initialize rng.")
 
-tf.app.flags.DEFINE_integer('test_vectors', 8,
+tf.app.flags.DEFINE_integer('test_vectors', 16,
                             """Number of features to use for testing""")
                             
 tf.app.flags.DEFINE_string('train_dir', 'train',
                            "Output folder where training logs are dumped.")
 
-tf.app.flags.DEFINE_integer('train_time', 480,
+tf.app.flags.DEFINE_integer('train_time', 1,
                             "Time in minutes to train the model")
+
+tf.app.flags.DEFINE_string('source_fake_dir', 'img_fake_source',
+                           "Input folder where the source fake images are located.")
+
+tf.app.flags.DEFINE_string('source_real_dir', 'img_real_source',
+                           "Input folder where the source real images are located.")
+
+tf.app.flags.DEFINE_string('result_dir', 'img_result',
+                           "Output folder where the computed images are stored.")
+
+tf.app.flags.DEFINE_string('model_dir', 'model',
+                           "Output folder where the graph is stored.")
 
 def prepare_dirs(delete_train_dir=False):
     # Create checkpoint dir (do not delete anything)
     if not tf.gfile.Exists(FLAGS.checkpoint_dir):
         tf.gfile.MakeDirs(FLAGS.checkpoint_dir)
     
+    # Create source fake dir (do not delete anything)
+    if not tf.gfile.Exists(FLAGS.source_fake_dir):
+        tf.gfile.MakeDirs(FLAGS.source_fake_dir)
+
+    # Create source real dir (do not delete anything)
+    if not tf.gfile.Exists(FLAGS.source_real_dir):
+        tf.gfile.MakeDirs(FLAGS.source_real_dir)
+
+    # Create result dir (do not delete anything)
+    if not tf.gfile.Exists(FLAGS.result_dir):
+        tf.gfile.MakeDirs(FLAGS.result_dir)
+
     # Cleanup train dir
     if delete_train_dir:
         if tf.gfile.Exists(FLAGS.train_dir):
@@ -80,21 +106,19 @@ def prepare_dirs(delete_train_dir=False):
         tf.gfile.MakeDirs(FLAGS.train_dir)
 
     # Return names of training files
-    if not tf.gfile.Exists(FLAGS.coco_fake) or \
+    if not tf.gfile.Exists(FLAGS.coco_real) or \
        not tf.gfile.IsDirectory(FLAGS.coco_real):
-        raise FileNotFoundError("Could not find folder `%s'" % (FLAGS.coco_fake))
+        raise FileNotFoundError("Could not find folder `%s'" % (FLAGS.coco_real,))
 
     filenames = tf.gfile.ListDirectory(FLAGS.coco_fake)
     filenames = sorted(filenames)
-    #random.shuffle(filenames)
     filenames = [os.path.join(FLAGS.coco_fake, f) for f in filenames]
 
     labelnames = tf.gfile.ListDirectory(FLAGS.coco_real)
     labelnames = sorted(labelnames)
-    #random.shuffle(filenames)
-    labelnames = [os.path.join(FLAGS.coco_real, f) for f in labelnames]
+    labelnames = [os.path.join(FLAGS.coco_real,f) for f in labelnames]
 
-    return filenames, labelnames
+    return filenames,labelnames
 
 
 def setup_tensorflow():
@@ -109,7 +133,7 @@ def setup_tensorflow():
     random.seed(FLAGS.random_seed)
     np.random.seed(FLAGS.random_seed)
 
-    summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
+    summary_writer = tf.summary.FileWriter(FLAGS.train_dir, sess.graph)
 
     return sess, summary_writer
 
@@ -142,6 +166,19 @@ def _demo():
     # Execute demo
     srez_demo.demo1(sess)
 
+def _infere(use_dataset):
+    # Load checkpoint
+    if not tf.gfile.IsDirectory(FLAGS.checkpoint_dir):
+        raise FileNotFoundError("Could not find folder `%s'" % (FLAGS.checkpoint_dir,))
+
+    # Setup global tensorflow state
+    sess, summary_writer = setup_tensorflow()
+
+    if use_dataset:
+        srez_infere.retro_infere(sess)
+    else:
+        srez_infere.infere(sess)
+
 class TrainData(object):
     def __init__(self, dictionary):
         self.__dict__.update(dictionary)
@@ -151,19 +188,19 @@ def _train():
     sess, summary_writer = setup_tensorflow()
 
     # Prepare directories
-    filenames, labelnames = prepare_dirs(delete_train_dir=True)
+    all_filenames, all_labelnames = prepare_dirs(delete_train_dir=True)
 
     # Separate training and test sets
-    train_filenames = filenames[:-FLAGS.test_vectors]
-    train_labelnames = labelnames[:-FLAGS.test_vectors] 
-    test_filenames  = filenames[-FLAGS.test_vectors:]
-    test_labelnames = labelnames[-FLAGS.test_vectors:]
+    train_filenames = all_filenames[:-FLAGS.test_vectors]
+    train_labelnames = all_labelnames[:-FLAGS.test_vectors]
+    test_filenames  = all_filenames[-FLAGS.test_vectors:]
+    test_labelnames = all_labelnames[-FLAGS.test_vectors:]
 
     # TBD: Maybe download dataset here
 
     # Setup async input queues
-    train_features, train_labels = srez_input.setup_input(sess, train_filenames, train_labelnames)
-    test_features,  test_labels  = srez_input.setup_input(sess, test_filenames, test_labelnames)
+    train_features, train_labels = srez_input.setup_inputs(sess, train_filenames, train_labelnames)
+    test_features,  test_labels  = srez_input.setup_inputs(sess, test_filenames, test_labelnames)
 
     # Add some noise during training (think denoising autoencoders)
     noise_level = .03
@@ -175,6 +212,7 @@ def _train():
      gene_output, gene_var_list,
      disc_real_output, disc_fake_output, disc_var_list] = \
             srez_model.create_model(sess, noisy_train_features, train_labels)
+    tf.convert_to_tensor(gene_moutput, name="gene_moutput")
 
     gene_loss = srez_model.create_generator_loss(disc_fake_output, gene_output, train_features)
     disc_real_loss, disc_fake_loss = \
@@ -190,12 +228,17 @@ def _train():
     srez_train.train_model(train_data)
 
 def main(argv=None):
+
     # Training or showing off?
 
     if FLAGS.run == 'demo':
         _demo()
     elif FLAGS.run == 'train':
         _train()
+    elif FLAGS.run == 'infere':
+        _infere(False)
+    elif FLAGS.run == 'check':
+        _infere(True)
 
 if __name__ == '__main__':
   tf.app.run()
