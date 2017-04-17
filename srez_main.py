@@ -191,10 +191,10 @@ def _train():
     all_filenames, all_labelnames = prepare_dirs(delete_train_dir=True)
 
     # Separate training and test sets
-    train_filenames = all_filenames[:-FLAGS.test_vectors]
-    train_labelnames = all_labelnames[:-FLAGS.test_vectors]
-    test_filenames  = all_filenames[-FLAGS.test_vectors:]
-    test_labelnames = all_labelnames[-FLAGS.test_vectors:]
+    train_filenames = all_filenames[:36000]
+    train_labelnames = all_labelnames[:36000]
+    test_filenames  = all_filenames[20:36]
+    test_labelnames = all_labelnames[20:36]
 
     # TBD: Maybe download dataset here
 

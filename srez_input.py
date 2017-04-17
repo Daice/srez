@@ -21,24 +21,30 @@ def feature_inputs(filenames, image_size=None):
     image = tf.image.random_brightness(image, .05)
     image = tf.image.random_contrast(image, .95, 1.05)
 
-    wiggle = 8
-    off_x, off_y = 25-wiggle, 60-wiggle
-    crop_size = 128
-    crop_size_plus = crop_size + 2*wiggle
-    image = tf.image.crop_to_bounding_box(image, off_y, off_x, crop_size_plus, crop_size_plus)
-    image = tf.random_crop(image, [crop_size, crop_size, 3])
+    #wiggle = 8
+    #off_x, off_y = 25-wiggle, 60-wiggle
+    #crop_size = 128
+    #crop_size_plus = crop_size + 2*wiggle
+    #image = tf.image.crop_to_bounding_box(image, off_y, off_x, crop_size_plus, crop_size_plus)
+    #image = tf.random_crop(image, [crop_size, crop_size, 3])
 
-    image = tf.reshape(image, [1, crop_size, crop_size, 3])
+    #image = tf.reshape(image, [1, crop_size, crop_size, 3])
+    #image = tf.cast(image, tf.float32)/255.0
+
+    #if crop_size != image_size:
+    #    image = tf.image.resize_area(image, [image_size, image_size])
+
+    image = tf.image.crop_to_bounding_box(image, 50, 50, 127, 127)
+
+    image = tf.reshape(image, [1, 128, 128, 3])
     image = tf.cast(image, tf.float32)/255.0
 
-    if crop_size != image_size:
-        image = tf.image.resize_area(image, [image_size, image_size])
-
     # The feature is simply a Kx downscaled version
-    K = 4
-    downsampled = tf.image.resize_area(image, [image_size//K, image_size//K])
 
-    feature = tf.reshape(downsampled, [image_size//K, image_size//K, 3])
+    K = 4
+    downsampled = tf.image.resize_area(image, [128//K, 128//K])
+
+    feature = tf.reshape(downsampled, [128//K, 128s//K, 3])
 
     '''
     image = tf.reshape(image, [1, 256,256, 3])
@@ -62,21 +68,25 @@ def label_inputs(labelnames, image_size=None):
     image = tf.image.decode_jpeg(value, channels=channels, name="coco_real_image")
     image.set_shape([None, None, channels])
 
-    wiggle = 8
-    off_x, off_y = 25-wiggle, 60-wiggle
-    crop_size = 128
-    crop_size_plus = crop_size + 2*wiggle
-    image = tf.image.crop_to_bounding_box(image, off_y, off_x, crop_size_plus, crop_size_plus)
-    image = tf.random_crop(image, [crop_size, crop_size, 3])
+    #wiggle = 8
+    #off_x, off_y = 25-wiggle, 60-wiggle
+    #crop_size = 128
+    #crop_size_plus = crop_size + 2*wiggle
+    #image = tf.image.crop_to_bounding_box(image, off_y, off_x, crop_size_plus, crop_size_plus)
+    #image = tf.random_crop(image, [crop_size, crop_size, 3])
 
-    image = tf.reshape(image, [1, crop_size, crop_size, 3])
-    image = tf.cast(image, tf.float32)/255.0
+    #image = tf.reshape(image, [1, crop_size, crop_size, 3])
+    #image = tf.cast(image, tf.float32)/255.0
 
-    if crop_size != image_size:
-        image = tf.image.resize_area(image, [image_size, image_size])
+    #if crop_size != image_size:
+    #    image = tf.image.resize_area(image, [image_size, image_size])
 
-    label = tf.reshape(image, [64, 64, 3])
-    #label = tf.cast(label, tf.float32)/255.0
+    #label = tf.reshape(image, [64, 64, 3])
+
+    image = tf.image.crop_to_bounding_box(image, 50, 50, 127, 127)
+
+    image = tf.reshape(image, [1, 128, 128, 3])
+    label = tf.cast(image, tf.float32)/255.0
 
     return label
 

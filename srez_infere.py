@@ -28,11 +28,17 @@ def setup_inputs(sess, filenames, image_size=None, capacity_factor=3):
     #image = tf.image.random_brightness(image, .05)
     #image = tf.image.random_contrast(image, .95, 1.05)
 
-    image = tf.reshape(image, [1, 256,256, 3])
+    image = tf.image.crop_to_bounding_box(image, 50, 50, 127, 127)
+
+    image = tf.reshape(image, [1, 128, 128, 3])
     image = tf.cast(image, tf.float32)/255.0
 
-    image = tf.image.resize_area(image, [64, 64])
-    feature = tf.reshape(image, [64, 64, 3])
+    # The feature is simply a Kx downscaled version
+
+    K = 4
+    downsampled = tf.image.resize_area(image, [128//K, 128//K])
+
+    feature = tf.reshape(downsampled, [128//K, 128//K, 3])
 
     # Using asynchronous queues
     features = tf.train.batch([feature],
