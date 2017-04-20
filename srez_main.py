@@ -52,7 +52,7 @@ tf.app.flags.DEFINE_integer('learning_rate_half_life', 5000,
 tf.app.flags.DEFINE_bool('log_device_placement', False,
                          "Log the device where variables are placed.")
 
-tf.app.flags.DEFINE_integer('sample_size', 64,
+tf.app.flags.DEFINE_integer('sample_size', 96,
                             "Image sample size in pixels. Range [64,128]")
 
 tf.app.flags.DEFINE_integer('summary_period', 10,
@@ -112,13 +112,13 @@ def prepare_dirs(delete_train_dir=False):
 
     filenames = tf.gfile.ListDirectory(FLAGS.coco_fake)
     filenames = sorted(filenames)
-    filenames = [os.path.join(FLAGS.coco_fake, f) for f in filenames]
+    #filenames = [os.path.join(FLAGS.coco_fake, f) for f in filenames]
 
-    labelnames = tf.gfile.ListDirectory(FLAGS.coco_real)
-    labelnames = sorted(labelnames)
-    labelnames = [os.path.join(FLAGS.coco_real,f) for f in labelnames]
+    #labelnames = tf.gfile.ListDirectory(FLAGS.coco_real)
+    #labelnames = sorted(labelnames)
+    #labelnames = [os.path.join(FLAGS.coco_real,f) for f in labelnames]
 
-    return filenames,labelnames
+    return filenames
 
 
 def setup_tensorflow():
@@ -188,14 +188,18 @@ def _train():
     sess, summary_writer = setup_tensorflow()
 
     # Prepare directories
-    all_filenames, all_labelnames = prepare_dirs(delete_train_dir=True)
+    all_filenames = prepare_dirs(delete_train_dir=True)
 
     # Separate training and test sets
-    train_filenames = all_filenames[:36000]
-    train_labelnames = all_labelnames[:36000]
-    test_filenames  = all_filenames[20:36]
-    test_labelnames = all_labelnames[20:36]
+    train_filenames = all_filenames[:30000]
+    train_labelnames = all_filenames[:30000]
+    test_filenames  = all_filenames[-90:]
+    test_labelnames = all_filenames[-90:]
 
+    train_filenames = [os.path.join(FLAGS.coco_fake, f) for f in train_filenames]
+    train_labelnames = [os.path.join(FLAGS.coco_real, f) for f in train_labelnames]
+    test_filenames = [os.path.join(FLAGS.coco_fake, f) for f in test_filenames]
+    test_labelnames = [os.path.join(FLAGS.coco_real, f) for f in test_labelnames]
     # TBD: Maybe download dataset here
 
     # Setup async input queues

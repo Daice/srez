@@ -17,9 +17,9 @@ def feature_inputs(filenames, image_size=None):
 
     # Crop and other random augmentations
     #image = tf.image.random_flip_left_right(image)
-    image = tf.image.random_saturation(image, .95, 1.05)
-    image = tf.image.random_brightness(image, .05)
-    image = tf.image.random_contrast(image, .95, 1.05)
+    #image = tf.image.random_saturation(image, .95, 1.05)
+    #image = tf.image.random_brightness(image, .05)
+    #image = tf.image.random_contrast(image, .95, 1.05)
 
     #wiggle = 8
     #off_x, off_y = 25-wiggle, 60-wiggle
@@ -34,17 +34,17 @@ def feature_inputs(filenames, image_size=None):
     #if crop_size != image_size:
     #    image = tf.image.resize_area(image, [image_size, image_size])
 
-    image = tf.image.crop_to_bounding_box(image, 50, 50, 127, 127)
+    image = tf.image.crop_to_bounding_box(image, 50, 50, image_size, image_size)
 
-    image = tf.reshape(image, [1, 128, 128, 3])
+    image = tf.reshape(image, [1, image_size, image_size, 3])
     image = tf.cast(image, tf.float32)/255.0
 
     # The feature is simply a Kx downscaled version
 
     K = 4
-    downsampled = tf.image.resize_area(image, [128//K, 128//K])
+    downsampled = tf.image.resize_area(image, [image_size//K, image_size//K])
 
-    feature = tf.reshape(downsampled, [128//K, 128s//K, 3])
+    feature = tf.reshape(downsampled, [image_size//K, image_size//K, 3])
 
     '''
     image = tf.reshape(image, [1, 256,256, 3])
@@ -83,9 +83,10 @@ def label_inputs(labelnames, image_size=None):
 
     #label = tf.reshape(image, [64, 64, 3])
 
-    image = tf.image.crop_to_bounding_box(image, 50, 50, 127, 127)
+    image = tf.image.crop_to_bounding_box(image, 50, 50, image_size, image_size)
 
-    image = tf.reshape(image, [1, 128, 128, 3])
+    image = tf.reshape(image, [1, image_size, image_size, 3])
+    image = tf.reshape(image, [image_size, image_size, 3])
     label = tf.cast(image, tf.float32)/255.0
 
     return label
