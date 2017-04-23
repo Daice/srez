@@ -456,11 +456,14 @@ def create_generator_loss(disc_output, gene_output, features):
     K = int(gene_output.get_shape()[1])//int(features.get_shape()[1])
     assert K == 2 or K == 4 or K == 8    
     downscaled = _downscale(gene_output, K)
-    
+
+    gene_mse_loss = tf.reduce_mean(tf.square(gene_output - labels), name='gene_mse_loss')
     gene_l1_loss  = tf.reduce_mean(tf.abs(downscaled - features), name='gene_l1_loss')
 
-    gene_loss     = tf.add((1.0 - FLAGS.gene_l1_factor) * gene_ce_loss,
-                           FLAGS.gene_l1_factor * gene_l1_loss, name='gene_loss')
+    gene_loss_l1     = tf.add((1.0 - FLAGS.gene_l1_factor) * gene_ce_loss,
+                           FLAGS.gene_l1_factor * gene_l1_loss, name='gene_loss_l1')
+    gene_loss     = tf.add((1.0 - FLAGS.gene_mse_factor) * gene_loss_l1, 
+                           FLAGS.gene_mse_factor * gene_mse_loss, name='gene_loss')
     
     return gene_loss
 
