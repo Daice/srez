@@ -297,6 +297,21 @@ class Model:
         self.outputs.append(out)
         return self        
 
+    def add_pixelshuffler(self, r = 2, n_split):
+        def PS(x, r):
+            bs, a, b, c = x.get_shape().as_list()
+            x = tf.reshape(x, (bs, a, b, r, r))
+            x = tf.transpose(x, (0, 1, 2, 4, 3))
+            x = tf.split(1, a, x)
+            x = tf.concat(2, [tf.squeeze(x_) for x_ in x])
+            x = tf.split(1, b, x)
+            x = tf.concat(2, [tf.squeeze(x_) for x_ in x])
+            return tf.reshape(x, (bs, a*r, b*r, 1))
+        xc = tf.split(3, n_split, self.get_output())
+        out = tf.concat(3, [PS(x_, r) for x_ in xc])
+        self.outputs.append(out)
+        return self
+
     def get_output(self):
         """Returns the output from the topmost layer of the network"""
         return self.outputs[-1]
@@ -324,12 +339,12 @@ class Model:
 def _discriminator_model(sess, features, disc_input):
     # Fully convolutional model
     mapsize = 3
-    layers  = [64, 128, 256, 512]
+    layers  = [128, 256, 512]
 
     old_vars = tf.global_variables() #tf.all_variables()
 
     model = Model('DIS', 2*disc_input - 1)
-
+'''
     for layer in range(len(layers)):
         nunits = layers[layer]
         stddev_factor = 2.0
@@ -351,6 +366,31 @@ def _discriminator_model(sess, features, disc_input):
     # (softmax will be applied later)
     model.add_conv2d(1, mapsize=1, stride=1, stddev_factor=stddev_factor)
     model.add_mean()
+'''
+    stddev_factor = 2.0
+    model.add_conv2d(64, mapsize=mapsize, stride=1, stddev_factor=stddev_factor)
+    model.add_lrelu()
+
+    model.add_conv2d(64, mapsize=mapsize, stride=2, stddev_factor=stddev_factor)
+    model.add_lrelu()
+    model.add_batch_norm()
+
+    for layer in range(len(layers)):
+        nunits = layers[layer]
+        stddev_factor = 2.0
+
+        model.add_conv2d(nunits, mapsize=mapsize, stride=1, stddev_factor=stddev_factor)
+        model.add_relu()
+        model.add_batch_norm()
+
+        model.add_conv2d(nunits, mapsize=mapsize, stride=2, stddev_factor=stddev_factor)
+        model.add_relu()
+        model.add_batch_norm()
+
+    model.add_dense(1024)
+    model.add_lrelu()
+    model.add_dense(1)
+    model.add_sigmoid()
 
     new_vars  = tf.global_variables()
     disc_vars = list(set(new_vars) - set(old_vars))
@@ -368,6 +408,7 @@ def _generator_model(sess, features, labels, channels):
     # See Arxiv 1603.05027
     model = Model('GEN', features)
 
+'''
     for ru in range(len(res_units)-1):
         nunits  = res_units[ru]
 
@@ -395,7 +436,36 @@ def _generator_model(sess, features, labels, channels):
     # Last layer is sigmoid with no batch normalization
     model.add_conv2d(channels, mapsize=1, stride=1, stddev_factor=1.)
     model.add_sigmoid()
+''' 
+    model.add_conv2d_transpose(64, mapsize=mapsize, stride=1, stddev_factor=1.)
+    model.add_relu()
+
+    temp = model.get_output()
+   
+    # add residual block
+    for i in range(4):
+        mid = model.get_output()
+        model.add_conv2d_transpose(64, mapsize=mapsize, stride=1, stddev_factor=1.)
+        model.add_batch_norm()
+        model.add_relu()
+        model.add_conv2d_transpose(64, mapsize=mapsize, stride=1, stddev_factor=1.)
+        model.add_batch_norm()
+        model.add_sum(mid)
     
+    model.add_conv2d_transpose(64, mapsize=mapsize, stride=1, stddev_factor=1.)
+    model.add_batch_norm()
+    model.add_sum(temp)
+
+    model.add_conv2d_transpose(256, mapsize=mapsize, stride=1, stddev_factor=1.)
+    model.add_pixelshuffler(r=2, n_split=64)
+    model.add_relu()
+
+    model.add_conv2d_transpose(64, mapsize=mapsize, stride=1, stddev_factor=1.)
+    model.add_pixelshuffler(r=2, n_split=16)
+    model.add_relu()
+
+    model.add_conv2d_transpose(3, mapsize=mapsize, stride=1, stddev_factor=1.)
+
     new_vars  = tf.global_variables()
     gene_vars = list(set(new_vars) - set(old_vars))
 
@@ -447,7 +517,7 @@ def _downscale(images, K):
                               padding='SAME')
     return downscaled
 
-def create_generator_loss(disc_output, gene_output, features):
+def create_generator_loss(disc_output, gene_output, features, labels):
     # I.e. did we fool the discriminator?
     cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(disc_output, tf.ones_like(disc_output))
     gene_ce_loss  = tf.reduce_mean(cross_entropy, name='gene_ce_loss')

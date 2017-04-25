@@ -64,7 +64,7 @@ def _save_checkpoint(train_data, batch):
 
     print("    Checkpoint saved")
 
-def _summarize_progress(train_data, feature, label, gene_output, batch, suffix, max_samples=8):
+def _summarize_progress(train_data, feature, label, gene_output, batch, suffix, max_samples=4):
     td = train_data
 
     size = [label.shape[1], label.shape[2]]
